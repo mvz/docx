@@ -1,14 +1,36 @@
 # docx
 
+[![Gem Version](https://badge.fury.io/rb/docx.svg)](https://badge.fury.io/rb/docx)
+[![Build Status](https://travis-ci.org/ruby-docx/docx.svg?branch=master)](https://travis-ci.org/ruby-docx/docx)
+[![Gitter](https://badges.gitter.im/ruby-docx/community.svg)](https://gitter.im/ruby-docx/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+
 A ruby library/gem for interacting with `.docx` files. currently capabilities include reading paragraphs/bookmarks, inserting text at bookmarks, reading tables/rows/columns/cells and saving the document.
 
 ## Usage
 
+### Prerequisites
+
+- Ruby 2.4 or later
+
 ### Install
 
-Requires ruby (tested with 2.1.1)
+Add the following line to your application's Gemfile:
 
-    gem 'docx', '~> 0.3.0'
+```ruby
+gem 'docx'
+```
+
+And then execute:
+
+```shell
+bundle install
+```
+
+Or install it yourself as:
+
+```shell
+gem install docx
+```
 
 ### Reading
 
@@ -35,7 +57,7 @@ Don't have a local file but a buffer? Docx handles those to:
 require 'docx'
 
 # Create a Docx::Document object from a remote file
-doc = Docx::Document.open_buffer(buffer)
+doc = Docx::Document.open(buffer)
 
 # Everything about reading is the same as shown above
 ```
@@ -72,7 +94,7 @@ doc.tables.each do |table|
       puts cell.text
     end
   end
-  
+
   table.columns.each do |column| # Column-based iteration
     column.cells.each do |cell|
       puts cell.text

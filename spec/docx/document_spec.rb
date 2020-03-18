@@ -34,6 +34,73 @@ describe Docx::Document do
         end
       end
     end
+
+    describe '#font_size' do
+      context 'When a docx files has no styles.xml' do
+        before do
+          @doc = Docx::Document.new(@fixtures_path + '/no_styles.docx')
+        end
+
+        it 'should raise an error' do
+          expect(@doc.font_size).to be_nil
+        end
+      end
+    end
+  end
+
+  shared_examples_for 'saving to file' do
+    it 'should save to a normal file path' do
+      @new_doc_path = @fixtures_path + '/new_save.docx'
+      @doc.save(@new_doc_path)
+      @new_doc = Docx::Document.open(@new_doc_path)
+      expect(@new_doc.paragraphs.size).to eq(@doc.paragraphs.size)
+    end
+
+    it 'should save to a tempfile' do
+      temp_file = Tempfile.new(['docx_gem', '.docx'])
+      @new_doc_path = temp_file.path
+      @doc.save(@new_doc_path)
+      @new_doc = Docx::Document.open(@new_doc_path)
+      expect(@new_doc.paragraphs.size).to eq(@doc.paragraphs.size)
+
+      temp_file.close
+      temp_file.unlink
+      # ensure temp file has been removed
+      expect(File.exist?(@new_doc_path)).to eq(false)
+    end
+
+    after do
+      File.delete(@new_doc_path) if File.exist?(@new_doc_path)
+    end
+  end
+
+  describe '#open' do
+    context 'When reading a file made by Office365' do
+      it 'supports it' do
+        expect do
+          Docx::Document.open(@fixtures_path + '/office365.docx')
+        end.to_not raise_error
+      end
+    end
+  end
+
+  describe 'reading' do
+    context 'using normal file' do
+      before do
+        @doc = Docx::Document.open(@fixtures_path + '/basic.docx')
+      end
+
+      it_behaves_like 'reading'
+    end
+
+    context 'using stream' do
+      before do
+        stream = File.binread(@fixtures_path + '/basic.docx')
+        @doc = Docx::Document.open(stream)
+      end
+
+      it_behaves_like 'reading'
+    end
   end
 
   shared_examples_for 'saving to file' do
@@ -353,7 +420,7 @@ describe Docx::Document do
     context 'from a stream' do
       before do
         stream = File.binread(@fixtures_path + '/saving.docx')
-        @doc = Docx::Document.open_buffer(stream)
+        @doc = Docx::Document.open(stream)
       end
 
       it_behaves_like 'saving to file'
@@ -381,7 +448,7 @@ describe Docx::Document do
         doc = Docx::Document.open(@fixtures_path + '/basic.docx')
         result = doc.stream
 
-        @doc = Docx::Document.open_buffer(result)
+        @doc = Docx::Document.open(result)
       end
 
       it_behaves_like 'reading'
@@ -471,6 +538,10 @@ describe Docx::Document do
 
     it 'should output styled html' do
       expect(@formatted_line.to_html.scan('<span style="text-decoration:underline;"><strong><em>all</em></strong></span>').size).to eq 1
+    end
+
+    it 'should join paragraphs with newlines' do
+      expect(@doc.to_html.scan(%(<p style="font-size:11pt;">Normal</p>\n<p style="font-size:11pt;"><em>Italic</em></p>\n<p style="font-size:11pt;"><strong>Bold</strong></p>)).size).to eq 1
     end
   end
 

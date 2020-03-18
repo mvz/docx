@@ -23,16 +23,23 @@ module Docx
     def initialize(path_or_io, options = {})
       @replace = {}
 
-      @zip = options[:use_buffer] ? Zip::File.open_buffer(path_or_io) : Zip::File.open(path_or_io)
-
-      @document_xml = @zip.read('word/document.xml')
-      @doc = Nokogiri::XML(@document_xml)
-      @styles_xml = @zip.read('word/styles.xml')
-      @styles = Nokogiri::XML(@styles_xml)
-      if block_given?
-        yield self
-        @zip.close
+      # if path-or_io is string && does not contain a null byte
+      if (path_or_io.instance_of?(String) && !/\u0000/.match?(path_or_io))
+        @zip = Zip::File.open(path_or_io)
+      else
+        @zip = Zip::File.open_buffer(path_or_io)
       end
+
+      document = @zip.find_entry('word/document.xml')
+      document ||= @zip.find_entry('word/document2.xml')
+      raise Errno::ENOENT if document.nil?
+
+      @document_xml = document.get_input_stream.read
+      @doc = Nokogiri::XML(@document_xml)
+      load_styles
+      yield(self) if block_given?
+    ensure
+      @zip.close
     end
 
     # This stores the current global document properties, for now
@@ -48,10 +55,6 @@ module Docx
     #   open(filepath) {|file| block } => obj
     def self.open(path, &block)
       new(path, &block)
-    end
-
-    def self.open_buffer(buffer, &block)
-      new(buffer, use_buffer: true, &block)
     end
 
     def paragraphs
@@ -74,6 +77,8 @@ module Docx
     # Some documents have this set, others don't.
     # Values are returned as half-points, so to get points, that's why it's divided by 2.
     def font_size
+      return nil unless @styles
+
       size_tag = @styles.xpath('//w:docDefaults//w:rPrDefault//w:rPr//w:sz').first
       size_tag ? size_tag.attributes['val'].value.to_i / 2 : nil
     end
@@ -96,7 +101,7 @@ module Docx
 
     # Output entire document as a String HTML fragment
     def to_html
-      paragraphs.map(&:to_html).join('\n')
+      paragraphs.map(&:to_html).join("\n")
     end
 
     # Save document to provided path
@@ -148,6 +153,14 @@ module Docx
     end
 
     private
+
+    def load_styles
+      @styles_xml = @zip.read('word/styles.xml')
+      @styles = Nokogiri::XML(@styles_xml)
+    rescue Errno::ENOENT => e
+      warn e.message
+      nil
+    end
 
     #--
     # TODO: Flesh this out to be compatible with other files
